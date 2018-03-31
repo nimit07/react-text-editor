@@ -2,6 +2,8 @@
   const http = require('http');
   const socketIO = require('socket.io');
   const fs = require('fs');
+  const firebase = require('firebase');
+  const dbConfig=require('./db-config').dbConfig;
   const bodyParser     = require('body-parser');
 
   const port = 4001;
@@ -25,8 +27,10 @@
       //
       // // Pass to next layer of middleware
       next();
-  })
-  require('./routes')(app, {});
+  });
+ let firebaseApp = firebase.initializeApp(dbConfig);
+
+  require('./routes')(app, firebaseApp.database());
   // our server instance
   const server = http.createServer(app);
 

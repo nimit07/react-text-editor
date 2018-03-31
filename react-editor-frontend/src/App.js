@@ -1,11 +1,12 @@
 
 import React, { Component } from "react";
 import socketIOClient from "socket.io-client";
-import {Editor, EditorState} from 'draft-js';
+import {Editor, EditorState,ContentState} from 'draft-js';
 import * as Draft from "draft-js";
 import {styles,endpoint} from "./consts";
-import * as fs from 'fs';
 import axios from 'axios';
+import DraftPasteProcessor from 'draft-js/lib/DraftPasteProcessor';
+import {stateToHTML} from 'draft-js-export-html';
 const socket = socketIOClient(endpoint,{reconnect: true,forceNew:false,transports: ['websocket'], upgrade: false});
 class App extends Component {
     constructor(props) {
@@ -13,22 +14,28 @@ class App extends Component {
         this.state = {
 
             editorState: EditorState.createEmpty(),
-            fileName : ''
+            fileName : '',
+            intervalCount:0
         };
         this.fileRef= React.createRef();
         this.onChange = (editorState) => {
-            this.setState({editorState});
-            if(!this.interval)
+            this.setState({editorState:editorState});
+            if(this.state.intervalCount==0){
                 this.interval = setInterval(this.saveFile.bind(this),5000);
+                this.setState({intervalCount:1});
+            }
+
         };
     }
 
 
     // sending sockets
     send = () => {
+        let html = stateToHTML(this.state.editorState.getCurrentContent());
+        console.log(html);
         const data ={
             fileName:this.state.fileName,
-            text:Draft.convertToRaw(this.state.editorState.getCurrentContent())
+            text:html
         }
         socket.emit('fileEdit', data); // change text
 
@@ -44,10 +51,14 @@ class App extends Component {
             console.log("loading file"+ fileName);
             console.log(JSON.stringify(response));
 
-            if(response.data.data==''){
+            if(Object.keys(response.data).length === 0 && response.data.constructor === Object){
                 this.setState({editorState:Draft.EditorState.createEmpty() ,fileName:fileName});
             }else{
-                let contentState = Draft.EditorState.createWithContent(Draft.convertFromRaw(response.data));
+                console.log(response.data.data);
+                const processedHTML = DraftPasteProcessor.processHTML(response.data.data);
+                const contentState = EditorState.createWithContent(ContentState.createFromBlockArray(processedHTML));
+
+                //let contentState = Draft.EditorState.createWithContent(Draft.convertFromRaw(response.data['data']));
                 this.setState({editorState: contentState,fileName:fileName});
             }
         });
@@ -55,12 +66,12 @@ class App extends Component {
     }
     saveFile(e){
         let that = this;
+        let html = stateToHTML(this.state.editorState.getCurrentContent());
         const data = {
             fileName:that.state.fileName,
             headers: {"Access-Control-Allow-Origin": "*"},
-            text: Draft.convertToRaw(that.state.editorState.getCurrentContent())
+            text: html
         };
-        const jsonData = JSON.stringify(data);
         axios.post(endpoint+'/saveFile/',data).then(response=>{
             console.log("data updated successfully");
         });
@@ -75,7 +86,8 @@ class App extends Component {
         const socket = socketIOClient(endpoint);
         socket.on('change text', (val) => {
             if(val.fileName===this.state.fileName) {
-                let contentState = Draft.EditorState.createWithContent(Draft.convertFromRaw(val.text));
+                const processedHTML = DraftPasteProcessor.processHTML(val.text);
+                const contentState = EditorState.createWithContent(ContentState.createFromBlockArray(processedHTML));
                 this.setState({editorState: contentState});
             }
         });

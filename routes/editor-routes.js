@@ -5,47 +5,40 @@ module.exports.readFile= function(app, db) {
         let content ="";
         const body = req.body;
         console.log(req.body);
-        const fileName = body.fileName;
-        fs.readFile(fileName,(err,data)=> {
+        let fileName = body.fileName;
+        fileName=fileName.replace('.','');
+        const fileRef = db.ref('fileData/'+fileName);
 
-            if (err) {
-                fs.writeFile(fileName, "", function(err) {
-                    if (err) {
-                        console.log(err);
-                    }
+        fileRef.once("value")
+            .then(function(snapshot) {
 
-                });
-            }
-            else{
-                // fs.readFile(fileName, function read(err, data) {
-                //     if (err) {
-                //         throw err;
-                //     }
-                //     content = data;
-                //
-                //
-                // });
-                content=data;
-                console.log("data: "+content);
-                res.send(content);
-            }
+              if(snapshot.exists()){
+                  console.log('does exists: '+snapshot.val());
+                  res.send(snapshot.val());
 
-        });
-
-
+              }else{
+                  console.log('does  not exist');
+                  res.send({});
+              }
+            });
     });
 };
 module.exports.saveFile= function(app, db) {
+
     app.post('/saveFile/', (req, res) => {
+        //const fileRef = db().ref('fileData');
         console.log(req.body);
         const body = req.body;
-        const fileName = body.fileName;
-        fs.writeFile(fileName, JSON.stringify(body.text), function(err) {
-            if (err) {
-                console.log(err);
-            }
+        let fileName = body.fileName;
+        const data ={
+            fileName:fileName,
+            data:body.text
+        };
+        fileName=fileName.replace('.','');
+        const fileRef = db.ref('fileData/'+fileName);
 
-        });
+        fileRef.set(data);
+
         res.send(req.param('fileName'));
     });
 };

@@ -5,6 +5,7 @@
   "dependencies": {
     "axios": "^0.18.0",
     "draft-js": "^0.10.5",
+    "draft-js-export-html": "^1.2.0",
     "fs": "0.0.1-security",
     "react": "^16.3.0",
     "react-dom": "^16.3.0",
